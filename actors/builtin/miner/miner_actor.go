@@ -365,7 +365,7 @@ func (a Actor) PreCommitSector(rt Runtime, params *SectorPreCommitInfo) *adt.Emp
 
 		newlyVestedFund, err := st.UnlockVestedFunds(store, rt.CurrEpoch())
 		if err != nil {
-			rt.Abortf(exitcode.ErrIllegalState, "failed to unlock vested funds")
+			rt.Abortf(exitcode.ErrIllegalState, "failed to unlock vested funds: %s", err)
 		}
 		availableBalance := st.GetAvailableBalance(rt.CurrentBalance())
 		depositReq := precommitDeposit(st.GetSectorSize(), params.Expiration-rt.CurrEpoch())
