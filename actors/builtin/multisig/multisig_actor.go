@@ -78,18 +78,13 @@ func (a Actor) Constructor(rt vmr.Runtime, params *ConstructorParams) *adt.Empty
 		rt.Abortf(exitcode.ErrIllegalArgument, "must have at least one signer")
 	}
 
-	var signers []addr.Address
-	for _, sa := range params.Signers {
-		signers = append(signers, sa)
-	}
-
 	pending, err := adt.MakeEmptyMap(adt.AsStore(rt)).Root()
 	if err != nil {
 		rt.Abortf(exitcode.ErrIllegalState, "failed to create empty map: %v", err)
 	}
 
 	var st State
-	st.Signers = signers
+	st.Signers = params.Signers
 	st.NumApprovalsThreshold = params.NumApprovalsThreshold
 	st.PendingTxns = pending
 	st.InitialBalance = abi.NewTokenAmount(0)
@@ -183,7 +178,7 @@ func (a Actor) Cancel(rt vmr.Runtime, params *TxnIDParams) *adt.EmptyValue {
 		if err != nil {
 			rt.Abortf(exitcode.ErrIllegalState, "failed to compute proposal hash: %v", err)
 		}
-		if params.ProposalHash != nil && bytes.Compare(params.ProposalHash, calculatedHash[:]) != 0 {
+		if params.ProposalHash != nil && !bytes.Equal(params.ProposalHash, calculatedHash[:]) {
 			rt.Abortf(exitcode.ErrIllegalState, "hash does not match proposal params")
 		}
 
@@ -328,7 +323,7 @@ func (a Actor) approveTransaction(rt vmr.Runtime, txnID TxnID, proposalHash []by
 			if err != nil {
 				rt.Abortf(exitcode.ErrIllegalState, "failed to compute proposal hash: %v", err)
 			}
-			if proposalHash != nil && bytes.Compare(proposalHash, calculatedHash[:]) != 0 {
+			if proposalHash != nil && !bytes.Equal(proposalHash, calculatedHash[:]) {
 				rt.Abortf(exitcode.ErrIllegalState, "hash does not match proposal params")
 			}
 		}

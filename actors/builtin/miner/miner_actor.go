@@ -364,6 +364,9 @@ func (a Actor) PreCommitSector(rt Runtime, params *SectorPreCommitInfo) *adt.Emp
 		validateExpiration(rt, &st, params.Expiration)
 
 		newlyVestedFund, err := st.UnlockVestedFunds(store, rt.CurrEpoch())
+		if err != nil {
+			rt.Abortf(exitcode.ErrIllegalState, "failed to unlock vested funds")
+		}
 		availableBalance := st.GetAvailableBalance(rt.CurrentBalance())
 		depositReq := precommitDeposit(st.GetSectorSize(), params.Expiration-rt.CurrEpoch())
 		if availableBalance.LessThan(depositReq) {
@@ -1199,11 +1202,17 @@ func computeFaultsFromMissingPoSts(st *State, deadlines *Deadlines, sinceDeadlin
 
 				// Record newly-faulty sectors.
 				newFaults, err := bitfield.SubtractBitField(partitionSectors, st.Faults)
+				if err != nil {
+					return nil, nil, fmt.Errorf("bitfield subtract failed: %s", err)
+				}
 				fGroups = append(fGroups, newFaults)
 
 				// Record failed recoveries.
 				// By construction, these are already faulty and thus not in newFaults.
 				failedRecovery, err := bitfield.IntersectBitField(partitionSectors, st.Recoveries)
+				if err != nil {
+					return nil, nil, fmt.Errorf("bitfield intersect failed: %s", err)
+				}
 				rGroups = append(rGroups, failedRecovery)
 			}
 		}
@@ -1396,6 +1405,9 @@ func terminateSectors(rt Runtime, sectorNos *abi.BitField, terminationType power
 
 		if terminationType != power.SectorTerminationExpired {
 			penalty, err = unlockPenalty(&st, store, rt.CurrEpoch(), allSectors, pledgePenaltyForSectorTermination)
+			if err != nil {
+				rt.Abortf(exitcode.ErrIllegalState, "failed to unlock penalty %s", err)
+			}
 		}
 		return nil
 	})
@@ -1502,19 +1514,6 @@ func requestTerminateDeals(rt Runtime, dealIDs []abi.DealID) {
 		abi.NewTokenAmount(0),
 	)
 	builtin.RequireSuccess(rt, code, "failed to terminate deals %v, exit code %v", dealIDs, code)
-}
-
-func requestTerminateAllDeals(rt Runtime, st *State) {
-	// TODO: red flag this is an ~unbounded computation.
-	// Transform into an idempotent partial computation that can be progressed on each invocation.
-	dealIds := []abi.DealID{}
-	if err := st.ForEachSector(adt.AsStore(rt), func(sector *SectorOnChainInfo) {
-		dealIds = append(dealIds, sector.Info.DealIDs...)
-	}); err != nil {
-		rt.Abortf(exitcode.ErrIllegalState, "failed to traverse sectors for termination: %v", err)
-	}
-
-	requestTerminateDeals(rt, dealIds)
 }
 
 func requestTerminatePower(rt Runtime, terminationType power.SectorTermination, sectorSize abi.SectorSize, sectors []*SectorOnChainInfo) {

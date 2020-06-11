@@ -227,11 +227,10 @@ func (a Actor) OnSectorTerminate(rt Runtime, params *OnSectorTerminateParams) *a
 	var st State
 	rt.State().Transaction(&st, func() interface{} {
 		rbpower, qapower := powersForWeights(params.Weights)
-		// err := st.AddToClaim(adt.AsStore(rt), minerAddr, rbpower.Neg(), qapower.Neg())
-		// if err != nil {
-		// 	rt.Abortf(exitcode.ErrIllegalState, "failed to deduct claimed power for sector: %v", err)
-		// }
-		st.AddToClaim(adt.AsStore(rt), minerAddr, rbpower.Neg(), qapower.Neg())
+		err := st.AddToClaim(adt.AsStore(rt), minerAddr, rbpower.Neg(), qapower.Neg())
+		if err != nil {
+			rt.Abortf(exitcode.ErrIllegalState, "failed to deduct claimed power for sector: %v", err)
+		}
 		return nil
 	})
 
@@ -530,7 +529,7 @@ func (a Actor) processBatchProofVerifies(rt Runtime) error {
 		_, _ = rt.Send(
 			m,
 			builtin.MethodsMiner.ConfirmSectorProofsValid,
-			&builtin.ConfirmSectorProofsParams{successful},
+			&builtin.ConfirmSectorProofsParams{Sectors: successful},
 			abi.NewTokenAmount(0),
 		)
 	}

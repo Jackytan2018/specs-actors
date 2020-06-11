@@ -2,7 +2,6 @@ package power
 
 import (
 	"reflect"
-	"sort"
 
 	addr "github.com/filecoin-project/go-address"
 	cid "github.com/ipfs/go-cid"
@@ -59,55 +58,6 @@ func ConstructState(emptyMapCid, emptyMMapCid cid.Cid) *State {
 		Claims:                   emptyMapCid,
 		NumMinersMeetingMinPower: 0,
 	}
-}
-
-// Note: this method is currently (Feb 2020) unreferenced in the actor code, but expected to be used to validate
-// Election PoSt winners outside the chain state. We may remove it.
-func (st *State) minerNominalPowerMeetsConsensusMinimum(s adt.Store, miner addr.Address) (bool, error) {
-	claim, ok, err := st.getClaim(s, miner)
-	if err != nil {
-		return false, err
-	}
-	if !ok {
-		return false, errors.Errorf("no claim for actor %v", miner)
-	}
-
-	minerNominalPower := claim.QualityAdjPower
-
-	// if miner is larger than min power requirement, we're set
-	if minerNominalPower.GreaterThanEqual(ConsensusMinerMinPower) {
-		return true, nil
-	}
-
-	// otherwise, if another miner meets min power requirement, return false
-	if st.NumMinersMeetingMinPower > 0 {
-		return false, nil
-	}
-
-	// else if none do, check whether in MIN_MINER_SIZE_TARG miners
-	if st.MinerCount <= ConsensusMinerMinMiners {
-		// miner should pass
-		return true, nil
-	}
-
-	m, err := adt.AsMap(s, st.Claims)
-	if err != nil {
-		return false, err
-	}
-
-	var minerSizes []abi.StoragePower
-	var claimed Claim
-	if err = m.ForEach(&claimed, func(k string) error {
-		nominalPower := claimed.QualityAdjPower
-		minerSizes = append(minerSizes, nominalPower)
-		return nil
-	}); err != nil {
-		return false, errors.Wrap(err, "failed to iterate power table")
-	}
-
-	// get size of MIN_MINER_SIZE_TARGth largest miner
-	sort.Slice(minerSizes, func(i, j int) bool { return i > j })
-	return minerNominalPower.GreaterThanEqual(minerSizes[ConsensusMinerMinMiners-1]), nil
 }
 
 // Parameters may be negative to subtract.
@@ -260,7 +210,7 @@ func (st *State) deleteClaim(s adt.Store, a addr.Address) error {
 	return nil
 }
 
-func addrInArray(a addr.Address, list []addr.Address) bool {
+func addrInArray(a addr.Address, list []addr.Address) bool { //nolint:deadcode,unused
 	for _, b := range list {
 		if b == a {
 			return true
